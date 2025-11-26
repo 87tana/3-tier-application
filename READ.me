@@ -1,0 +1,109 @@
+
+
+# 3-Tier Application Deployment on AKS 
+
+This project deploys a **3-tier web application** (Frontend → API → PostgreSQL) to a shared **Azure Kubernetes Service (AKS)** cluster.
+The app consists of:
+
+* **Frontend:** Nginx static web UI
+* **Backend API:** .NET Web API
+* **Database:** PostgreSQL with PersistentVolumeClaim
+
+---
+
+## 📁 Project Structure
+
+```
+api/                 # .NET Backend
+ui/                  # Nginx Frontend
+k8s/                 # Kubernetes manifests for AKS
+    postgres-deployment.yaml
+    api-deployment.yaml
+    frontend-deployment.yaml
+```
+
+---
+
+## 🐳 Docker Images (Docker Hub)
+
+Built and pushed manually:
+
+* `tannaz87/basic3tier-api:latest`
+* `tannaz87/basic3tier-ui:latest`
+
+---
+
+## ☸️ AKS Deployment Steps (Summary)
+
+1. **Connect to shared AKS cluster**
+
+   ```bash
+   az aks get-credentials --resource-group k8-Chinmayee --name cluster-chinmayee
+   ```
+
+2. **Create personal namespace**
+
+   ```bash
+   kubectl create namespace tannaz
+   ```
+
+3. **Deploy PostgreSQL**
+
+   ```bash
+   kubectl apply -f k8s/postgres-deployment.yaml -n tannaz
+   ```
+
+4. **Deploy API**
+
+   ```bash
+   kubectl apply -f k8s/api-deployment.yaml -n tannaz
+   ```
+
+5. **Deploy Frontend (LoadBalancer)**
+
+   ```bash
+   kubectl apply -f k8s/frontend-deployment.yaml -n tannaz
+   ```
+
+6. **Get external IP**
+
+   ```bash
+   kubectl get svc -n tannaz
+   ```
+
+Open the app in browser:
+
+```
+http://<EXTERNAL-IP>
+```
+
+---
+
+## 🛠 PostgreSQL Issue & Fix
+
+**Problem:**
+Postgres pod was stuck in `CrashLoopBackOff` because Azure Disk adds a `lost+found` folder, making `/var/lib/postgresql/data` **not empty**, causing `initdb` to fail.
+
+**Fix:**
+Store Postgres data in a subfolder:
+
+```yaml
+- name: PGDATA
+  value: /var/lib/postgresql/data/pgdata
+```
+
+This avoids the `lost+found` conflict and the database starts successfully.
+
+---
+
+## ✅ Result
+
+All 3 tiers run successfully in AKS:
+
+* PostgreSQL → ClusterIP
+* API → ClusterIP
+* Frontend → LoadBalancer (public IP)
+
+The application is reachable via the LoadBalancer IP and fully functional.
+
+
